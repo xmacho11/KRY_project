@@ -1,9 +1,12 @@
 import bcrypt
 import pyotp
-import sql as sql
+import utils.sql as sql
 import qrcode
 import os
+from utils.modules import setup_logging
+import logging
 
+setup_logging()
 class Authenticator2FA:
 
     def __init__(self, session, name, issuer_name):
@@ -34,8 +37,7 @@ class Authenticator2FA:
         qr.save(qr_path)
         os.system(qr_path)  
 
-        print("Please scan opened QR code in your Google Authenticator app.")
-
+        logging.warning("Please scan opened QR code in your Google Authenticator app.")
 
     @staticmethod
     def verify_otp(secret, user_code):
@@ -45,12 +47,12 @@ class Authenticator2FA:
     def authenticate(self, username, password, otp_code):
         stored_hash, secret = sql.load_user(username)
 
-        # 1. Ověření
         if not self.verify_password(stored_hash, password):
-            print("spatne heslo")
+            logging.error("Log in failed: password incorrect!")
             return False
         elif not self.verify_otp(secret, otp_code):
-            print("spatne totp")
+            logging.error("Log in failed: OTP code incorrect!")
             return False
         else:
+            logging.info(f"User {username} logged in.")
             return True

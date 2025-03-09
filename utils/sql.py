@@ -1,6 +1,11 @@
 import sqlite3
 import bcrypt
 import pyotp
+import os 
+from utils.modules import setup_logging
+import logging
+
+setup_logging()
 
 def create_database():
     conn = sqlite3.connect("users.db")
@@ -21,14 +26,13 @@ def register_user(username, password_hash, totp_secret):
     cursor = conn.cursor()
     
     try:
-        print(f"Saving to database: {username}, {type(password_hash)}, {type(totp_secret)}")
         cursor.execute("INSERT INTO users (username, password_hash, totp_secret) VALUES (?, ?, ?)", 
                        (username, password_hash, totp_secret))
         conn.commit()
-        print("User succesfuly registered !")
+        logging.info(f"User {username} succesfuly registered!")
 
     except sqlite3.IntegrityError:
-        print("Username already taken!")
+        logging.error("Username already taken!")
     
     conn.close()
 
