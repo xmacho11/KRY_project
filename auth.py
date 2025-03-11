@@ -9,11 +9,19 @@ import logging
 setup_logging()
 class Authenticator2FA:
 
-    def __init__(self, session, name, issuer_name):
+    def __init__(self, session, name, issuer_name, ip_addr):
         self.session = session
         self.name = name
         self.issuer_name = issuer_name
+        self.ip_addr = ip_addr
+        logging.warning(f"User {name} wish to authenticate in session {session} via device {issuer_name} ({ip_addr}).")
 
+    def get_username(self):
+        return self.name
+    
+    def get_ip(self):
+        return self.ip_addr
+    
     @staticmethod
     def hash_password(password):
         salt = bcrypt.gensalt()

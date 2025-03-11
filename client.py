@@ -5,6 +5,7 @@ from utils.setup import setup_client
 from utils.modules import setup_logging
 import logging
 import pwinput as pw
+import socket
 
 setup_logging()
 
@@ -24,15 +25,15 @@ def main():
         var = input("Enter your username: ")
         username = var
         if sql.check_user_exists(username):
-            auth = Authenticator2FA(0,username,__name__)
+            auth = Authenticator2FA(0,username,socket.gethostname(),socket.gethostbyname(socket.gethostname()))
             registered = True
             break
 
         else:
             var = input("Username doesnt exist! Wish to register? [y] yes [any] cancel [q] quit : ")
             if input_list(var) == "yes":
-                auth = Authenticator2FA(0,username,__name__)
-                var = input("Enter your password: ")
+                auth = Authenticator2FA(0,username)
+                var = pw.pwinput("Enter your password: ")
                 sql.register_user(username, auth.hash_password(var), auth.keygen())
                 registered = True
                 break
@@ -43,9 +44,12 @@ def main():
             otp = input("Enter your TOTP code: ")
             if not auth.authenticate(username,pswd,otp):
                 break
-            break # tady bude volání serveru
+            else:
+                # Předání username serveru pomocí auth.get_username()
+                print("TODO: předání username serveru pro otevření správného adresáře")
+                break
 
-    sys.exit(logging.info("Exiting ..."))
+    sys.exit(logging.info("Exiting client"))
 
 if __name__=="__main__":
     setup_client()
