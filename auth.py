@@ -5,6 +5,7 @@ import qrcode
 import os
 from utils.modules import setup_logging
 import logging
+import requests
 
 setup_logging()
 class Authenticator2FA:
@@ -64,3 +65,12 @@ class Authenticator2FA:
         else:
             logging.info(f"User {username} logged in.")
             return True
+    
+    @staticmethod
+    def send_public_key(server_url):
+        """ Pošle veřejný klíč serveru, aby ho mohl použít k šifrování zpráv pro klienta """
+        with open("client_public_key.pem", "rb") as public_file:
+            public_key = public_file.read()
+
+        response = requests.post(f"{server_url}/register-public-key", json={"public_key": public_key.decode()})
+        print(response.json())

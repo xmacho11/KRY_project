@@ -47,6 +47,7 @@ def main():
             else:
                 # Předání username serveru pomocí auth.get_username()
                 print("TODO: předání username serveru pro otevření správného adresáře")
+                auth.send_public_key("http://127.0.0.1:8000") # zaslání veřejného klíče klienta
                 break
 
     sys.exit(logging.info("Exiting client"))

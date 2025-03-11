@@ -1,114 +1,118 @@
 from flask import Flask, request, jsonify
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP, AES
-from Crypto.Util.Padding import pad
+from Crypto.Util.Padding import pad, unpad
 import base64
 import os
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# Funkce pro uložení klíče do souboru
-def save_keys():
-    private_key = RSA.generate(2048)
-    public_key = private_key.publickey()
+BASE_FILE_PATH = "./server_files/"
+PRIVATE_KEY_PATH = "server_private_key.pem"
+PUBLIC_KEY_PATH = "server_public_key.pem"
 
-    # Uložení soukromého klíče
-    with open("private_key.pem", "wb") as private_file:
-        private_file.write(private_key.export_key())
-
-    # Uložení veřejného klíče
-    with open("public_key.pem", "wb") as public_file:
-        public_file.write(public_key.export_key())
-
+# Funkce pro uložení nebo načtení klíčů
+def load_or_generate_keys():
+    if os.path.exists(PRIVATE_KEY_PATH) and os.path.exists(PUBLIC_KEY_PATH):
+        with open(PRIVATE_KEY_PATH, "rb") as private_file:
+            private_key = RSA.import_key(private_file.read())
+        with open(PUBLIC_KEY_PATH, "rb") as public_file:
+            public_key = RSA.import_key(public_file.read())
+    else:
+        private_key = RSA.generate(2048)
+        public_key = private_key.publickey()
+        with open(PRIVATE_KEY_PATH, "wb") as private_file:
+            private_file.write(private_key.export_key())
+        with open(PUBLIC_KEY_PATH, "wb") as public_file:
+            public_file.write(public_key.export_key())
     return private_key, public_key
 
-# Funkce pro načtení soukromého klíče
-def load_private_key():
-    with open("private_key.pem", "rb") as private_file:
-        private_key = RSA.import_key(private_file.read())
-    return private_key
+private_key, public_key = load_or_generate_keys()
 
-# Funkce pro načtení veřejného klíče
-def load_public_key():
-    with open("public_key.pem", "rb") as public_file:
-        public_key = RSA.import_key(public_file.read())
-    return public_key
+@app.route("/register-public-key", methods=["POST"])
+def register_public_key():
+    data = request.json
+    client_public_key = data.get("public_key")
 
-# Při spuštění aplikace
-if not os.path.exists("private_key.pem"):
-    private_key, public_key = save_keys()
-else:
-    private_key = load_private_key()
-    public_key = load_public_key()
+    if not client_public_key:
+        return jsonify({"error": "No public key received"}), 400
 
-# Cesta k souborům, které může server poskytovat
-BASE_FILE_PATH = "./server_files/"
+    try:
+        with open("client_public_key.pem", "w") as f:
+            f.write(client_public_key)
+
+        logging.info("Client public key received and saved.")
+        return jsonify({"status": "Client public key received successfully!"})
+    except Exception as e:
+        logging.error(f"Error saving client public key: {str(e)}")
+        return jsonify({"error": "Failed to save public key"}), 500
+
 
 @app.route("/public-key", methods=["GET"])
 def get_public_key():
-    """ Vrátí veřejný klíč pro šifrování AES klíče """
     return jsonify({"public_key": public_key.export_key().decode()})
 
 @app.route("/upload", methods=["POST"])
 def receive_encrypted_file():
-    """ Přijme zašifrovaný AES klíč a soubor, dešifruje ho a uloží """
     data = request.json
-    encrypted_aes_key = base64.b64decode(data["encrypted_aes_key"])
-    encrypted_file = base64.b64decode(data["encrypted_file"])
+    encrypted_aes_key = base64.b64decode(data.get("encrypted_aes_key", ""))
+    encrypted_file = base64.b64decode(data.get("encrypted_file", ""))
+    iv = base64.b64decode(data.get("iv", ""))
+    
+    try:
+        # Oprava: Použití správného klíče pro dešifrování AES klíče
+        cipher_rsa = PKCS1_OAEP.new(private_key)
+        aes_key = cipher_rsa.decrypt(encrypted_aes_key)
+        
+        cipher_aes = AES.new(aes_key, AES.MODE_CBC, iv)
+        decrypted_file = unpad(cipher_aes.decrypt(encrypted_file), AES.block_size)
+    
+        with open(os.path.join(BASE_FILE_PATH, "received_decrypted_file.txt"), "wb") as f:
+            f.write(decrypted_file)
 
-    # Dešifrování AES klíče pomocí RSA
-    cipher_rsa = PKCS1_OAEP.new(private_key)
-    aes_key = cipher_rsa.decrypt(encrypted_aes_key)
-
-    # Dešifrování souboru AES
-    nonce, ciphertext = encrypted_file[:16], encrypted_file[16:]
-    cipher_aes = AES.new(aes_key, AES.MODE_EAX, nonce=nonce)
-    decrypted_file = cipher_aes.decrypt(ciphertext)
-
-    # Uložení souboru
-    with open("received_decrypted_file.txt", "wb") as f:
-        f.write(decrypted_file)
-
-    return jsonify({"status": "File decrypted and saved successfully!"})
+        return jsonify({"status": "File decrypted and saved successfully!"})
+    except Exception as e:
+        logging.error(f"Decryption error: {str(e)}")
+        return jsonify({"error": "Decryption failed."}), 500
 
 @app.route("/get-file", methods=["GET"])
 def get_file():
-    """ Odeslání zašifrovaného souboru klientovi """
-    # Získání cesty k souboru z parametru URL
     file_path = request.args.get("file_path")
+    full_path = os.path.join(BASE_FILE_PATH, file_path)
     
-    if file_path and os.path.exists(os.path.join(BASE_FILE_PATH, file_path)):
-        # Pokud soubor existuje, zašifrujeme ho a pošleme klientovi
-        encrypted_file, encrypted_aes_key, iv = encrypt_file(os.path.join(BASE_FILE_PATH, file_path))
-        
-        # Sestavení odpovědi
-        response = {
-            "encrypted_file": base64.b64encode(encrypted_file).decode(),
-            "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
-            "iv": base64.b64encode(iv).decode()
-        }
-        
-        return response
+    if file_path and os.path.exists(full_path):
+        try:
+            encrypted_file, encrypted_aes_key, iv = encrypt_file(full_path)
+            response = {
+                "encrypted_file": base64.b64encode(encrypted_file).decode(),
+                "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
+                "iv": base64.b64encode(iv).decode()
+            }
+            return jsonify(response)
+        except Exception as e:
+            logging.error(f"Encryption error: {str(e)}")
+            return jsonify({"error": "Encryption failed."}), 500
     else:
-        return {"error": "Soubor nebyl nalezen!"}, 404
+        return jsonify({"error": "File not found!"}), 404
 
 def encrypt_file(file_path):
-    # Generování AES klíče
-    aes_key = os.urandom(32)  # AES-256 klíč
+    aes_key = os.urandom(32)  # AES-256 key
     cipher_aes = AES.new(aes_key, AES.MODE_CBC)
     
     with open(file_path, "rb") as f:
         file_data = f.read()
     
-    # Zašifrování souboru
     encrypted_file = cipher_aes.encrypt(pad(file_data, AES.block_size))
     
-    # Šifrování AES klíče pomocí RSA
-    cipher_rsa = PKCS1_OAEP.new(public_key)
+    # Encrypt AES key with CLIENT's public key
+    client_public_key = RSA.import_key(open("client_public_key.pem").read())
+    cipher_rsa = PKCS1_OAEP.new(client_public_key)
     encrypted_aes_key = cipher_rsa.encrypt(aes_key)
     
-    # Vrátí šifrovaný soubor a šifrovaný AES klíč
     return encrypted_file, encrypted_aes_key, cipher_aes.iv
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=8000)
