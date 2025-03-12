@@ -6,11 +6,12 @@ import os
 from utils.modules import setup_logging
 import logging
 import requests
+import subprocess
 
 setup_logging()
 class Authenticator2FA:
 
-    def __init__(self, session, name, issuer_name, ip_addr):
+    def __init__(self, session, name, issuer_name = "unknown", ip_addr = "unknown"):
         self.session = session
         self.name = name
         self.issuer_name = issuer_name
@@ -44,7 +45,8 @@ class Authenticator2FA:
         
         qr_path = "qrcode.png"
         qr.save(qr_path)
-        os.system(qr_path)  
+        os.chmod(qr_path, 0o644) # pro Linux
+        subprocess.run(["xdg-open", qr_path])  # Pro Linux  
 
         logging.warning("Please scan opened QR code in your Google Authenticator app.")
 

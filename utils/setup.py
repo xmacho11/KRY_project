@@ -1,6 +1,6 @@
 import os
 import utils.sql as sql
-from utils.modules import setup_logging, protect_file
+from utils.modules import setup_logging
 from Crypto.PublicKey import RSA
 from utils.ui import *
 import logging

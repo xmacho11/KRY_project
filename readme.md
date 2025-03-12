@@ -1,5 +1,5 @@
 
-## Requirements
+## Linux version Requirements
 
 ### Python 3.13.2 
 [link](https://www.python.org/downloads/release/python-3132/)
@@ -7,11 +7,11 @@
 ### Virtual enviroment
 create
 ```bash  
-python -m venv venv
+python3 -m venv venv
 ``` 
 activate
 ```bash  
-.\venv\Scripts\activate
+source ./venv/bin/activate
 ```
 
 ### Libraries
@@ -20,9 +20,9 @@ pip install -r requirements.txt
 ```
 ### Start server
 ```bash
-python server.py
+python3 server.py
 ```
 ### Run client
 ```bash
-python client.py
+python3 client.py
 ```
