@@ -29,7 +29,7 @@ def register_user(username, password_hash, totp_secret):
         cursor.execute("INSERT INTO users (username, password_hash, totp_secret) VALUES (?, ?, ?)", 
                        (username, password_hash, totp_secret))
         conn.commit()
-        logging.info(f"User {username} succesfuly registered!")
+        logging.info(f"User {username} succesfully registered!")
 
     except sqlite3.IntegrityError:
         logging.error("Username already taken!")

@@ -38,6 +38,7 @@ def main():
                 var = pw.pwinput("Enter your password: ")
                 sql.register_user(username, auth.hash_password(var), auth.keygen())
                 registered = True
+                break
             
     if registered:
         while True:

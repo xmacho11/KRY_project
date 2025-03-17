@@ -12,7 +12,7 @@ def setup_client(logs_path="./logs/"):
 
     try:    
         if not os.path.exists("users.db"):
-            logging.warning("Database not found!")
+            logging.warning("Database not found! Creating new users database.")
             sql.create_database()
 
 
@@ -20,14 +20,14 @@ def setup_client(logs_path="./logs/"):
         if not os.path.exists(log_file_path):
             os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
         
-        # Spustíme generování klíčů, pokud neexistují
+        # Generování klíčů, pokud neexistují
         if not os.path.exists("client_private_key.pem"):
             generate_keys()
         
     except:
         logging.fatal("Client setup failed!")
     else:
-        logging.info("Client setup succesful!")
+        logging.info("Client setup succesfull!")
         welcome_screen()
 
 def generate_keys():

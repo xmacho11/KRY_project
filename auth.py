@@ -75,4 +75,4 @@ class Authenticator2FA:
             public_key = public_file.read()
 
         response = requests.post(f"{server_url}/register-public-key", json={"public_key": public_key.decode()})
-        print(response.json())
+        logging.info(response.json())
