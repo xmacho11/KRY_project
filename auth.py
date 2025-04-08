@@ -45,8 +45,8 @@ class Authenticator2FA:
         
         qr_path = "qrcode.png"
         qr.save(qr_path)
-        os.chmod(qr_path, 0o644) # pro Linux
-        subprocess.run(["xdg-open", qr_path])  # Pro Linux  
+        os.chmod(qr_path, 0o644)
+        subprocess.run(["xdg-open", qr_path])
 
         logging.warning("Please scan opened QR code in your Google Authenticator app.")
 
@@ -78,7 +78,7 @@ class Authenticator2FA:
             response = requests.post(
                 f"{server_url}/register-public-key",
                 json={"public_key": public_key.decode()},
-                verify="server-cert.crt"  # ověřujeme serverový certifikát
+                verify="server-cert.crt"  # ověř serverový certifikát
             )
             response.raise_for_status()  # vyhodí výjimku pokud nenastane 2xx odpověď
             logging.info(response.json())

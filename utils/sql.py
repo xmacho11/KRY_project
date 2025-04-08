@@ -47,7 +47,7 @@ def load_user(username):
         stored_hash, totp_secret = user
         return stored_hash, totp_secret
     else:
-        return None, None  # Pokud uživatel neexistuje
+        return None, None  
 
 def check_user_exists(username):
     conn = sqlite3.connect("users.db")
