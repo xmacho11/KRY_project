@@ -74,5 +74,16 @@ class Authenticator2FA:
         with open("client_public_key.pem", "rb") as public_file:
             public_key = public_file.read()
 
-        response = requests.post(f"{server_url}/register-public-key", json={"public_key": public_key.decode()})
-        logging.info(response.json())
+        try:
+            response = requests.post(
+                f"{server_url}/register-public-key",
+                json={"public_key": public_key.decode()},
+                verify="server-cert.crt"  # ověřujeme serverový certifikát
+            )
+            response.raise_for_status()  # vyhodí výjimku pokud nenastane 2xx odpověď
+            logging.info(response.json())
+        except requests.exceptions.SSLError as ssl_error:
+            logging.error(f"SSL verification failed: {ssl_error}")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error communicating with server: {e}")
+

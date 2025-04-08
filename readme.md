@@ -1,3 +1,6 @@
+## Basic info
+Repo for a MPC-KRY project. Client-Server secured data storage with two factor authentication using password and TOTP code. AES data transfer from client to server and vice versa. Asymmetric cryptography (RSA) used for keys transfer. To be finished.
+TODO: file explorer for and TLS implementation.
 
 ## Linux version Requirements
 

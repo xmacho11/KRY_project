@@ -47,13 +47,13 @@ def main():
             if not auth.authenticate(username,pswd,otp):
                 break
             else:
-                auth.send_public_key("http://127.0.0.1:8000") # zaslání veřejného klíče klienta serveru
+                auth.send_public_key("https://127.0.0.1:8000") # zaslání veřejného klíče klienta serveru
                 # Předání username serveru pomocí auth.get_username()
                 # Tady se spustí file manager klient, který bude pomocí GET a POST požadavků komunikovat se serverem
                 print("TODO: file manager")
                 break
 
-    sys.exit(logging.info("Exiting client"))
+    sys.exit(logging.info("Exitting client"))
 
 if __name__=="__main__":
     setup_client()

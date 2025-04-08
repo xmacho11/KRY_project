@@ -5,9 +5,13 @@ from Crypto.Util.Padding import pad, unpad
 import base64
 import os
 import logging
+#DoS ochrana
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
+limiter = Limiter(get_remote_address, app=app)
 
 BASE_FILE_PATH = "./server_files/"
 PRIVATE_KEY_PATH = "server_private_key.pem"
@@ -55,6 +59,7 @@ def get_public_key():
     return jsonify({"public_key": public_key.export_key().decode()})
 
 @app.route("/upload", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def receive_encrypted_file():
     data = request.json
     encrypted_aes_key = base64.b64decode(data.get("encrypted_aes_key", ""))
@@ -62,7 +67,6 @@ def receive_encrypted_file():
     iv = base64.b64decode(data.get("iv", ""))
     
     try:
-        # Oprava: Použití správného klíče pro dešifrování AES klíče
         cipher_rsa = PKCS1_OAEP.new(private_key)
         aes_key = cipher_rsa.decrypt(encrypted_aes_key)
         
@@ -78,6 +82,7 @@ def receive_encrypted_file():
         return jsonify({"error": "Decryption failed."}), 500
 
 @app.route("/get-file", methods=["GET"])
+@limiter.limit("10 per minute") #DoS
 def get_file():
     file_path = request.args.get("file_path")
     full_path = os.path.join(BASE_FILE_PATH, file_path)
@@ -115,4 +120,4 @@ def encrypt_file(file_path):
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8000)
+    app.run(ssl_context=('server-cert.crt', 'privkey.pem'), host='127.0.0.1', port=8000)
