@@ -15,8 +15,9 @@ setup_logging()
 
 
 class Upload:
-    def __init__(self, server_url, cert_path="cert.pem"):
+    def __init__(self, server_url, username, cert_path="cert.pem"):
         self.server_url = server_url
+        self.username = username
         self.cert_path = cert_path  # cesta k certifikátu serveru
         self.aes_key = os.urandom(32)  # 256-bit AES key
 
@@ -58,15 +59,20 @@ class Upload:
         encrypted_file, iv = self.encrypt_aes(file_data)
         encrypted_aes_key = self.encrypt_aes_key(public_key)
 
+        headers = {"X-Username": self.username}
+        filename = os.path.basename(file_path)  # název souboru bez cesty
+
         try:
             response = requests.post(
                 f"{self.server_url}/upload",
                 json={
                     "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
                     "encrypted_file": base64.b64encode(encrypted_file).decode(),
-                    "iv": base64.b64encode(iv).decode()
+                    "iv": base64.b64encode(iv).decode(),
+                    "filename": filename
                 },
-                verify=self.cert_path  # Ověření certifikátu serveru
+                headers=headers,  # <-- doplněno
+                verify=self.cert_path
             )
             response.raise_for_status()
             logging.info(response.json())
@@ -75,5 +81,6 @@ class Upload:
 
 
 if __name__ == "__main__":
-    uploader = Upload("https://127.0.0.1:8000", cert_path="server-cert.crt")
+    username = input("Zadej username: ")  # interaktivní nebo předej z autentizace
+    uploader = Upload("https://127.0.0.1:8000", username, cert_path="server-cert.crt")
     uploader.send_file("test.txt")

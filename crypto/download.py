@@ -9,22 +9,24 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import unpad
 from utils.modules import setup_logging
-
 setup_logging()
 
 
 class Download:
-    def __init__(self, server_url, cert_path="cert.pem"):
+    def __init__(self, server_url, username, cert_path="server-cert.crt"):
         self.server_url = server_url
+        self.username = username
         self.cert_path = cert_path  # Cesta k certifikátu serveru
 
     def request_file(self, file_path):
         """ Požádá server o soubor a ověří certifikát """
         try:
+            headers = {"X-Username": self.username}
             response = requests.get(
                 f"{self.server_url}/get-file",
                 params={"file_path": file_path},
-                verify=self.cert_path  # Ověření certifikátu serveru
+                headers=headers,               
+                verify=self.cert_path          # Ověření certifikátu serveru
             )
             response.raise_for_status()
 
@@ -53,12 +55,13 @@ class Download:
 
     def save_file(self, file_data, file_path):
         """ Uložení dešifrovaného souboru """
-        output_path = f"decrypted_{file_path}"
+        output_path = f"{file_path}"
         with open(output_path, "wb") as f:
             f.write(file_data)
         logging.info(f"File {file_path} downloaded and saved as '{output_path}'.")
 
 
 if __name__ == "__main__":
-    downloader = Download("https://127.0.0.1:8000", cert_path="server-cert.crt")
+    username = input("Zadej username: ")  # interaktivní nebo předej z autentizace
+    downloader = Download("https://127.0.0.1:8000", username, cert_path="server-cert.crt")
     downloader.request_file("sample.txt")

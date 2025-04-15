@@ -6,16 +6,35 @@ from utils.modules import setup_logging
 import logging
 import pwinput as pw
 import socket
+from file_manager import ClientFileManager
+from utils.ui import show_menu
+import crypto.download as down
+import crypto.upload as up
 
+server = "https://127.0.0.1:8000"
+certificate = "server-cert.crt"
 setup_logging()
 
 def input_list(input):
     commands = {
         "q": "exit",
         "y": "yes",
-        "n": "no"
+        "n": "no",
+        "cf": "create_file",
+        "e": "edit_file",
+        "df": "delete_file",
+        "cd": "create_dir",
+        "dd": "delete_dir",
+        "r": "rename",
+        "up": "upload",
+        "dw": "download",
+        "ls": "list_dir",
+        "show": "read_file",
+        "md": "change_dir",
+        "help": "help"
     }
-    return commands.get(input,"none")
+    return commands.get(input, "none")
+
 
 def main():
     var = ""
@@ -47,12 +66,87 @@ def main():
             if not auth.authenticate(username,pswd,otp):
                 break
             else:
-                auth.send_public_key("https://127.0.0.1:8000") # zaslání veřejného klíče klienta serveru
-                # Předání username serveru pomocí auth.get_username()
-                # Tady se spustí file manager klient, který bude pomocí GET a POST požadavků komunikovat se serverem
-                print("TODO: file manager")
-                break
+                auth.send_public_key(server)
+                print("Authenticated!")
 
+                # Inicializace klienta s předáním username
+                client = ClientFileManager(server, auth.get_username(), certificate)
+                show_menu()
+                while True:
+                    var = input(f"\n./{client.cwd} > ")
+                    command = input_list(var)
+
+                    match command:
+                        case "create_file":
+                            filename = input("Filename: ")
+                            content = input("Content: ")
+                            print(client.create_file(filename, content))
+
+                        case "edit_file":
+                            filename = input("Filename: ")
+                            content = input("Nový obsah: ")
+                            print(client.edit_file(filename, content))
+
+                        case "delete_file":
+                            filename = input("Filename: ")
+                            print(client.delete_file(filename))
+
+                        case "create_dir":
+                            dirname = input("Directory: ")
+                            print(client.create_directory(dirname))
+
+                        case "delete_dir":
+                            dirname = input("Directory: ")
+                            print(client.delete_directory(dirname))
+
+                        case "rename":
+                            old_name = input("Filename: ")
+                            new_name = input("New Filename: ")
+                            print(client.rename(old_name, new_name))
+                        
+                        case "download":
+                            filename = input("File name: ")
+                            downloader = down.Download(server, username, certificate)
+                            downloader.request_file(filename)
+
+                        case "upload":
+                            filepath = input("Filepath: ")  # interaktivní nebo předej z autentizace
+                            uploader = up.Upload(server, username, certificate)
+                            uploader.send_file(filepath)
+
+                        case "list_dir":
+                            try:
+                                content = client.list_directory()
+                                print(f"\nContents> /{client.cwd or '.'}:")
+                                for item in content:
+                                    symbol = "[DIR]" if item["type"] == "directory" else "     "
+                                    print(f"{symbol} {item['name']}")
+                            except Exception as e:
+                                print(f"Error: {e}")
+
+                        case "read_file":
+                            file_path = input("Path (relative): ")
+                            try:
+                                content = client.read_file(file_path)
+                                print("\nContent:")
+                                print(content)
+                            except Exception as e:
+                                print(f"Error:: {e}")
+
+                        case "change_dir":
+                            new_dir = input("Path (relative): ")
+                            result = client.change_directory(new_dir)
+                            print(result)
+                        
+                        case "help":
+                            show_menu()
+
+                        case "exit":
+                            break
+
+                        case _:
+                            print("Invalid Command")
+                break              
     sys.exit(logging.info("Exitting client"))
 
 if __name__=="__main__":

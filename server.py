@@ -59,48 +59,70 @@ def get_public_key():
     return jsonify({"public_key": public_key.export_key().decode()})
 
 @app.route("/upload", methods=["POST"])
-@limiter.limit("5 per minute") #DoS
+@limiter.limit("5 per minute")
 def receive_encrypted_file():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
     data = request.json
     encrypted_aes_key = base64.b64decode(data.get("encrypted_aes_key", ""))
     encrypted_file = base64.b64decode(data.get("encrypted_file", ""))
     iv = base64.b64decode(data.get("iv", ""))
-    
+    filename = data.get("filename")
+
+    if not filename:
+        abort(400, description="Missing filename")
+
+    user_path = user_dir(username)
+    file_path = os.path.abspath(os.path.join(user_path, filename))
+
+    if not is_safe_path(user_path, file_path):
+        abort(400, description="Invalid file path")
+
     try:
         cipher_rsa = PKCS1_OAEP.new(private_key)
         aes_key = cipher_rsa.decrypt(encrypted_aes_key)
-        
+
         cipher_aes = AES.new(aes_key, AES.MODE_CBC, iv)
         decrypted_file = unpad(cipher_aes.decrypt(encrypted_file), AES.block_size)
-    
-        with open(os.path.join(BASE_FILE_PATH, "received_decrypted_file.txt"), "wb") as f:
+
+        with open(file_path, "wb") as f:
             f.write(decrypted_file)
 
         return jsonify({"status": "File decrypted and saved successfully!"})
+
     except Exception as e:
         logging.error(f"Decryption error: {str(e)}")
         return jsonify({"error": "Decryption failed."}), 500
 
+
 @app.route("/get-file", methods=["GET"])
-@limiter.limit("10 per minute") #DoS
+@limiter.limit("10 per minute")
 def get_file():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
     file_path = request.args.get("file_path")
-    full_path = os.path.join(BASE_FILE_PATH, file_path)
-    
-    if file_path and os.path.exists(full_path):
-        try:
-            encrypted_file, encrypted_aes_key, iv = encrypt_file(full_path)
-            response = {
-                "encrypted_file": base64.b64encode(encrypted_file).decode(),
-                "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
-                "iv": base64.b64encode(iv).decode()
-            }
-            return jsonify(response)
-        except Exception as e:
-            logging.error(f"Encryption error: {str(e)}")
-            return jsonify({"error": "Encryption failed."}), 500
-    else:
+    user_path = user_dir(username)
+    full_path = os.path.abspath(os.path.join(user_path, file_path))
+
+    if not is_safe_path(user_path, full_path) or not os.path.exists(full_path):
         return jsonify({"error": "File not found!"}), 404
+
+    try:
+        encrypted_file, encrypted_aes_key, iv = encrypt_file(full_path)
+        response = {
+            "encrypted_file": base64.b64encode(encrypted_file).decode(),
+            "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
+            "iv": base64.b64encode(iv).decode()
+        }
+        return jsonify(response)
+    except Exception as e:
+        logging.error(f"Encryption error: {str(e)}")
+        return jsonify({"error": "Encryption failed."}), 500
+
 
 def encrypt_file(file_path):
     aes_key = os.urandom(32)  # AES-256 key
@@ -117,6 +139,181 @@ def encrypt_file(file_path):
     encrypted_aes_key = cipher_rsa.encrypt(aes_key)
     
     return encrypted_file, encrypted_aes_key, cipher_aes.iv
+
+# *************************** FILE MANAGER *************************************
+
+import shutil
+from flask import abort
+import subprocess
+
+def user_dir(username):
+    path = os.path.abspath(os.path.join(BASE_FILE_PATH, username))
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def is_safe_path(base_path, path):
+    return os.path.commonpath([base_path, path]) == base_path
+
+@app.route("/create-file", methods=["POST"])
+def create_file():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    data = request.json
+    filename = data.get("filename")
+    content = data.get("content", "")
+
+    user_path = user_dir(username)
+    file_path = os.path.abspath(os.path.join(user_path, filename))
+
+    if not is_safe_path(user_path, file_path):
+        abort(400, description="Invalid file path")
+
+    with open(file_path, "w") as f:
+        f.write(content)
+
+    return jsonify({"status": "File created", "path": file_path})
+
+@app.route("/delete-file", methods=["POST"])
+def delete_file():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    data = request.json
+    filename = data.get("filename")
+
+    user_path = user_dir(username)
+    file_path = os.path.abspath(os.path.join(user_path, filename))
+
+    if not is_safe_path(user_path, file_path) or not os.path.isfile(file_path):
+        abort(400, description="Invalid file path")
+
+    os.remove(file_path)
+    return jsonify({"status": "File deleted"})
+
+@app.route("/edit-file", methods=["POST"])
+def edit_file():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    data = request.json
+    filename = data.get("filename")
+    content = data.get("content")
+
+    user_path = user_dir(username)
+    file_path = os.path.abspath(os.path.join(user_path, filename))
+
+    if not is_safe_path(user_path, file_path) or not os.path.isfile(file_path):
+        abort(400, description="Invalid file path")
+
+    with open(file_path, "w") as f:
+        f.write(content)
+
+    return jsonify({"status": "File edited"})
+
+@app.route("/create-directory", methods=["POST"])
+def create_directory():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    data = request.json
+    dirname = data.get("dirname")
+
+    user_path = user_dir(username)
+    dir_path = os.path.abspath(os.path.join(user_path, dirname))
+
+    if not is_safe_path(user_path, dir_path):
+        abort(400, description="Invalid directory path")
+
+    os.makedirs(dir_path, exist_ok=True)
+    return jsonify({"status": "Directory created", "path": dir_path})
+
+@app.route("/delete-directory", methods=["POST"])
+def delete_directory():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    data = request.json
+    dirname = data.get("dirname")
+
+    user_path = user_dir(username)
+    dir_path = os.path.abspath(os.path.join(user_path, dirname))
+
+    if not is_safe_path(user_path, dir_path) or not os.path.isdir(dir_path):
+        abort(400, description="Invalid directory path")
+
+    shutil.rmtree(dir_path)
+    return jsonify({"status": "Directory deleted"})
+
+@app.route("/rename", methods=["POST"])
+def rename():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    data = request.json
+    old_name = data.get("old_name")
+    new_name = data.get("new_name")
+
+    user_path = user_dir(username)
+    old_path = os.path.abspath(os.path.join(user_path, old_name))
+    new_path = os.path.abspath(os.path.join(user_path, new_name))
+
+    if not is_safe_path(user_path, old_path) or not is_safe_path(user_path, new_path):
+        abort(400, description="Invalid path")
+
+    os.rename(old_path, new_path)
+    return jsonify({"status": "Renamed", "from": old_path, "to": new_path})
+
+@app.route("/list-dir", methods=["GET"])
+def list_dir():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    rel_path = request.args.get("path", "")
+    user_path = user_dir(username)
+    target_path = os.path.abspath(os.path.join(user_path, rel_path))
+
+    if not is_safe_path(user_path, target_path) or not os.path.isdir(target_path):
+        abort(400, description="Invalid directory path")
+
+    items = []
+    for item in os.listdir(target_path):
+        item_path = os.path.abspath(os.path.join(target_path, item))
+        if os.path.isdir(item_path):
+            item_type = "directory"
+        elif os.path.isfile(item_path):
+            item_type = "file"
+        else:
+            item_type = "other"  
+        items.append({"name": item, "type": item_type})
+
+    return jsonify({"content": items})
+
+
+@app.route("/read-file", methods=["GET"])
+def read_file():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    rel_path = request.args.get("file_path")
+    user_path = user_dir(username)
+    file_path = os.path.abspath(os.path.join(user_path, rel_path))
+
+    if not is_safe_path(user_path, file_path) or not os.path.isfile(file_path):
+        abort(400, description="Invalid file path")
+
+    with open(file_path, "r") as f:
+        content = f.read()
+
+    return jsonify({"content": content})
 
 
 if __name__ == "__main__":
