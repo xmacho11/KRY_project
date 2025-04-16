@@ -117,7 +117,7 @@ def main():
                         case "list_dir":
                             try:
                                 content = client.list_directory()
-                                print(f"\nContents> /{client.cwd or '.'}:")
+                                print(f"\nContents> {client.cwd or '.'}:")
                                 for item in content:
                                     symbol = "[DIR]" if item["type"] == "directory" else "     "
                                     print(f"{symbol} {item['name']}")

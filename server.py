@@ -4,18 +4,22 @@ from Crypto.Cipher import PKCS1_OAEP, AES
 from Crypto.Util.Padding import pad, unpad
 import base64
 import os
-import logging
 #DoS ochrana
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import shutil
+from flask import abort
+import subprocess
+from crypto.secure_logger_server import SecureServerLogger
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
 limiter = Limiter(get_remote_address, app=app)
 
 BASE_FILE_PATH = "./server_files/"
 PRIVATE_KEY_PATH = "server_private_key.pem"
 PUBLIC_KEY_PATH = "server_public_key.pem"
+
+logger = SecureServerLogger("./logs/secure_server_log.txt")
 
 # Funkce pro uložení nebo načtení klíčů
 def load_or_generate_keys():
@@ -47,10 +51,10 @@ def register_public_key():
         with open("client_public_key.pem", "w") as f:
             f.write(client_public_key)
 
-        logging.info("Client public key received and saved.")
+        logger.log("info","Client public key received and saved.")
         return jsonify({"status": "Client public key received successfully!"})
     except Exception as e:
-        logging.error(f"Error saving client public key: {str(e)}")
+        logger.log("error",f"Error saving client public key: {str(e)}")
         return jsonify({"error": "Failed to save public key"}), 500
 
 
@@ -93,7 +97,7 @@ def receive_encrypted_file():
         return jsonify({"status": "File decrypted and saved successfully!"})
 
     except Exception as e:
-        logging.error(f"Decryption error: {str(e)}")
+        logger.log("error",f"Decryption error: {str(e)}")
         return jsonify({"error": "Decryption failed."}), 500
 
 
@@ -120,7 +124,7 @@ def get_file():
         }
         return jsonify(response)
     except Exception as e:
-        logging.error(f"Encryption error: {str(e)}")
+        logger.log("error",f"Encryption error: {str(e)}")
         return jsonify({"error": "Encryption failed."}), 500
 
 
@@ -141,10 +145,6 @@ def encrypt_file(file_path):
     return encrypted_file, encrypted_aes_key, cipher_aes.iv
 
 # *************************** FILE MANAGER *************************************
-
-import shutil
-from flask import abort
-import subprocess
 
 def user_dir(username):
     path = os.path.abspath(os.path.join(BASE_FILE_PATH, username))
@@ -172,7 +172,8 @@ def create_file():
 
     with open(file_path, "w") as f:
         f.write(content)
-
+    
+    logger.log("info",f"{username} created file {filename}")
     return jsonify({"status": "File created", "path": file_path})
 
 @app.route("/delete-file", methods=["POST"])
@@ -191,6 +192,7 @@ def delete_file():
         abort(400, description="Invalid file path")
 
     os.remove(file_path)
+    logger.log("info",f"{username} deleted file {filename}")
     return jsonify({"status": "File deleted"})
 
 @app.route("/edit-file", methods=["POST"])
@@ -212,6 +214,7 @@ def edit_file():
     with open(file_path, "w") as f:
         f.write(content)
 
+    logger.log("info",f"{username} edited file {filename}")
     return jsonify({"status": "File edited"})
 
 @app.route("/create-directory", methods=["POST"])
@@ -230,6 +233,8 @@ def create_directory():
         abort(400, description="Invalid directory path")
 
     os.makedirs(dir_path, exist_ok=True)
+
+    logger.log("info",f"{username} created directory {dirname}")
     return jsonify({"status": "Directory created", "path": dir_path})
 
 @app.route("/delete-directory", methods=["POST"])
@@ -248,6 +253,7 @@ def delete_directory():
         abort(400, description="Invalid directory path")
 
     shutil.rmtree(dir_path)
+    logger.log("info",f"{username} deleted directory {dirname}")
     return jsonify({"status": "Directory deleted"})
 
 @app.route("/rename", methods=["POST"])
@@ -268,6 +274,7 @@ def rename():
         abort(400, description="Invalid path")
 
     os.rename(old_path, new_path)
+    logger.log("info",f"{username} renamed file {old_name} to {new_name}")
     return jsonify({"status": "Renamed", "from": old_path, "to": new_path})
 
 @app.route("/list-dir", methods=["GET"])
@@ -312,9 +319,26 @@ def read_file():
 
     with open(file_path, "r") as f:
         content = f.read()
+    
+    logger.log("info",f"{username} read file {file_path}")
 
     return jsonify({"content": content})
 
+@app.route("/check-directory", methods=["GET"])
+def check_directory():
+    username = request.headers.get("X-Username")
+    if not username:
+        abort(401, description="Missing username header")
+
+    rel_path = request.args.get("path", "")
+    user_path = user_dir(username)
+    target_path = os.path.abspath(os.path.join(user_path, rel_path))
+
+    if not is_safe_path(user_path, target_path):
+        abort(400, description="Invalid path")
+
+    exists = os.path.isdir(target_path)
+    return jsonify({"exists": exists})
 
 if __name__ == "__main__":
     app.run(ssl_context=('server-cert.crt', 'privkey.pem'), host='127.0.0.1', port=8000)
