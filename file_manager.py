@@ -60,16 +60,22 @@ class ClientFileManager:
     def delete_file(self, filename):
         full_path = os.path.normpath(os.path.join(self.cwd, filename))
         data = {"filename": full_path}
-        response = requests.post(f"{self.server_url}/delete-file", json=data, headers=self.headers, verify=self.cert_path)
-        logging.info(f"{filename}: {json.dumps(response.json(), indent=2)}")
-        return response.json()
+        try:
+            response = requests.post(f"{self.server_url}/delete-file", json=data, headers=self.headers, verify=self.cert_path)
+            logging.info(f"{filename}: {json.dumps(response.json(), indent=2)}")
+            return response.json()
+        except:
+            return "Error: Invalid file"
 
     def edit_file(self, filename, new_content):
         full_path = os.path.normpath(os.path.join(self.cwd, filename))
         data = {"filename": full_path, "content": new_content}
-        response = requests.post(f"{self.server_url}/edit-file", json=data, headers=self.headers, verify=self.cert_path)
-        logging.info(f"{filename}: {json.dumps(response.json(), indent=2)}")
-        return response.json()
+        try:
+            response = requests.post(f"{self.server_url}/edit-file", json=data, headers=self.headers, verify=self.cert_path)
+            logging.info(f"{filename}: {json.dumps(response.json(), indent=2)}")
+            return response.json()
+        except:
+            return "Error: Invalid file"
 
     def create_directory(self, dirname):
         full_path = os.path.normpath(os.path.join(self.cwd, dirname))
@@ -81,14 +87,20 @@ class ClientFileManager:
     def delete_directory(self, dirname):
         full_path = os.path.normpath(os.path.join(self.cwd, dirname))
         data = {"dirname": full_path}
-        response = requests.post(f"{self.server_url}/delete-directory", json=data, headers=self.headers, verify=self.cert_path)
-        logging.info(f"{dirname}: {json.dumps(response.json(), indent=2)}")
-        return response.json()
+        try:
+            response = requests.post(f"{self.server_url}/delete-directory", json=data, headers=self.headers, verify=self.cert_path)
+            logging.info(f"{dirname}: {json.dumps(response.json(), indent=2)}")
+            return response.json()
+        except:
+            return "Error : Invalid directory"
 
     def rename(self, old_name, new_name):
         old_full_path = os.path.normpath(os.path.join(self.cwd, old_name))
         new_full_path = os.path.normpath(os.path.join(self.cwd, new_name))
         data = {"old_name": old_full_path, "new_name": new_full_path}
-        response = requests.post(f"{self.server_url}/rename", json=data, headers=self.headers, verify=self.cert_path)
-        logging.info(f"{old_name}: {json.dumps(response.json(), indent=2)}")
-        return response.json()
+        try:
+            response = requests.post(f"{self.server_url}/rename", json=data, headers=self.headers, verify=self.cert_path)
+            logging.info(f"{old_name}: {json.dumps(response.json(), indent=2)}")
+            return response.json()
+        except:
+            return "Error: Invalid file or directory"
