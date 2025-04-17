@@ -11,7 +11,7 @@ from Crypto.Util.Padding import unpad
 from utils.modules import setup_logging
 setup_logging()
 
-
+# Třída pro stahování souboru ze serveru
 class Download:
     def __init__(self, server_url, username, cert_path="server-cert.crt"):
         self.server_url = server_url
@@ -26,7 +26,7 @@ class Download:
                 f"{self.server_url}/get-file",
                 params={"file_path": file_path},
                 headers=headers,               
-                verify=self.cert_path          # Ověření certifikátu serveru
+                verify=self.cert_path  # Ověření certifikátu serveru
             )
             response.raise_for_status()
 
@@ -53,15 +53,13 @@ class Download:
         cipher_aes = AES.new(aes_key, AES.MODE_CBC, iv)
         return unpad(cipher_aes.decrypt(encrypted_file), AES.block_size)
 
-    def save_file(self, file_data, file_path):
+    def save_file(self, file_data, server_path):
         """ Uložení dešifrovaného souboru """
-        output_path = f"{file_path}"
+        local_filename = os.path.basename(server_path)
+        output_path = os.path.join("downloads", local_filename)
+
+        os.makedirs("downloads", exist_ok=True)
+
         with open(output_path, "wb") as f:
             f.write(file_data)
-        logging.info(f"File {file_path} downloaded and saved as '{output_path}'.")
-
-
-if __name__ == "__main__":
-    username = input("Zadej username: ")  # interaktivní nebo předej z autentizace
-    downloader = Download("https://127.0.0.1:8000", username, cert_path="server-cert.crt")
-    downloader.request_file("sample.txt")
+        logging.info(f"File {server_path} downloaded and saved as '{output_path}'.")

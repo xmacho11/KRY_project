@@ -10,16 +10,15 @@ from Crypto.Cipher import PKCS1_OAEP, AES
 from Crypto.Util.Padding import pad
 from utils.modules import setup_logging
 
-
 setup_logging()
 
-
+# Třída pro stahování souborů ze serveru
 class Upload:
     def __init__(self, server_url, username, cert_path="cert.pem"):
         self.server_url = server_url
         self.username = username
-        self.cert_path = cert_path  # cesta k certifikátu serveru
-        self.aes_key = os.urandom(32)  # 256-bit AES key
+        self.cert_path = cert_path  # Cesta k certifikátu serveru
+        self.aes_key = os.urandom(32)  # 256-bit AES klíč
 
     def get_server_public_key(self):
         """ Získání veřejného RSA klíče serveru s ověřením certifikátu """
@@ -43,7 +42,7 @@ class Upload:
         cipher_rsa = PKCS1_OAEP.new(public_key)
         return cipher_rsa.encrypt(self.aes_key)
 
-    def send_file(self, file_path):
+    def send_file(self, file_path, cwd=""):
         """ Odeslání zašifrovaného souboru a AES klíče na server """
         if not os.path.exists(file_path):
             logging.error(f"File {file_path} not found!")
@@ -60,7 +59,8 @@ class Upload:
         encrypted_aes_key = self.encrypt_aes_key(public_key)
 
         headers = {"X-Username": self.username}
-        filename = os.path.basename(file_path)  # název souboru bez cesty
+        filename = os.path.basename(file_path)
+        relative_path = os.path.join(cwd, filename)
 
         try:
             response = requests.post(
@@ -69,18 +69,12 @@ class Upload:
                     "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
                     "encrypted_file": base64.b64encode(encrypted_file).decode(),
                     "iv": base64.b64encode(iv).decode(),
-                    "filename": filename
+                    "filename": relative_path
                 },
-                headers=headers,  # <-- doplněno
+                headers=headers,
                 verify=self.cert_path
             )
             response.raise_for_status()
             logging.info(response.json())
         except Exception as e:
             logging.error(f"Failed to upload file: {e}")
-
-
-if __name__ == "__main__":
-    username = input("Zadej username: ")  # interaktivní nebo předej z autentizace
-    uploader = Upload("https://127.0.0.1:8000", username, cert_path="server-cert.crt")
-    uploader.send_file("test.txt")

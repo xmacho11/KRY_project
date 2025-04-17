@@ -21,7 +21,7 @@ PUBLIC_KEY_PATH = "server_public_key.pem"
 
 logger = SecureServerLogger("./logs/secure_server_log.txt")
 
-# Funkce pro uložení nebo načtení klíčů
+# Funkce pro generování nebo načtení klíčů
 def load_or_generate_keys():
     if os.path.exists(PRIVATE_KEY_PATH) and os.path.exists(PUBLIC_KEY_PATH):
         with open(PRIVATE_KEY_PATH, "rb") as private_file:
@@ -39,6 +39,7 @@ def load_or_generate_keys():
 
 private_key, public_key = load_or_generate_keys()
 
+# Uložení přijatého veřejného klíče klienta
 @app.route("/register-public-key", methods=["POST"])
 def register_public_key():
     data = request.json
@@ -57,11 +58,12 @@ def register_public_key():
         logger.log("error",f"Error saving client public key: {str(e)}")
         return jsonify({"error": "Failed to save public key"}), 500
 
-
+# Poskytnutí veřejného klíče serveru
 @app.route("/public-key", methods=["GET"])
 def get_public_key():
     return jsonify({"public_key": public_key.export_key().decode()})
 
+# Obdržení, dešifrování a uložení nahrávaného souboru
 @app.route("/upload", methods=["POST"])
 @limiter.limit("5 per minute")
 def receive_encrypted_file():
@@ -100,7 +102,7 @@ def receive_encrypted_file():
         logger.log("error",f"Decryption error: {str(e)}")
         return jsonify({"error": "Decryption failed."}), 500
 
-
+# Funkce pro zašifrování a stažení vyžádaného souboru
 @app.route("/get-file", methods=["GET"])
 @limiter.limit("10 per minute")
 def get_file():
@@ -127,9 +129,9 @@ def get_file():
         logger.log("error",f"Encryption error: {str(e)}")
         return jsonify({"error": "Encryption failed."}), 500
 
-
+# Šifrování souborů
 def encrypt_file(file_path):
-    aes_key = os.urandom(32)  # AES-256 key
+    aes_key = os.urandom(32)  # AES-256 klíč
     cipher_aes = AES.new(aes_key, AES.MODE_CBC)
     
     with open(file_path, "rb") as f:
@@ -137,7 +139,7 @@ def encrypt_file(file_path):
     
     encrypted_file = cipher_aes.encrypt(pad(file_data, AES.block_size))
     
-    # Encrypt AES key with CLIENT's public key
+    # Zašifrování AES klíče pomocí veřejného klíče klienta
     client_public_key = RSA.import_key(open("client_public_key.pem").read())
     cipher_rsa = PKCS1_OAEP.new(client_public_key)
     encrypted_aes_key = cipher_rsa.encrypt(aes_key)
@@ -146,14 +148,17 @@ def encrypt_file(file_path):
 
 # *************************** FILE MANAGER *************************************
 
+# Funkce pro otevření správného adresáře (dle username), případně jeho vytvoření
 def user_dir(username):
     path = os.path.abspath(os.path.join(BASE_FILE_PATH, username))
     os.makedirs(path, exist_ok=True)
     return path
 
+# Funkce pro oveření správnosti zadané cesty (musí se nacházet v domovském adresáři base_path)
 def is_safe_path(base_path, path):
     return os.path.commonpath([base_path, path]) == base_path
 
+# Vytvoření souboru
 @app.route("/create-file", methods=["POST"])
 def create_file():
     username = request.headers.get("X-Username")
@@ -176,6 +181,7 @@ def create_file():
     logger.log("info",f"{username} created file {filename}")
     return jsonify({"status": "File created", "path": file_path})
 
+# Smazání souboru
 @app.route("/delete-file", methods=["POST"])
 def delete_file():
     username = request.headers.get("X-Username")
@@ -195,6 +201,7 @@ def delete_file():
     logger.log("info",f"{username} deleted file {filename}")
     return jsonify({"status": "File deleted"})
 
+# Editace existujícího souboru
 @app.route("/edit-file", methods=["POST"])
 def edit_file():
     username = request.headers.get("X-Username")
@@ -217,6 +224,7 @@ def edit_file():
     logger.log("info",f"{username} edited file {filename}")
     return jsonify({"status": "File edited"})
 
+# Vytvoření adresáře
 @app.route("/create-directory", methods=["POST"])
 def create_directory():
     username = request.headers.get("X-Username")
@@ -237,6 +245,7 @@ def create_directory():
     logger.log("info",f"{username} created directory {dirname}")
     return jsonify({"status": "Directory created", "path": dir_path})
 
+# Smazání adresáře
 @app.route("/delete-directory", methods=["POST"])
 def delete_directory():
     username = request.headers.get("X-Username")
@@ -256,6 +265,7 @@ def delete_directory():
     logger.log("info",f"{username} deleted directory {dirname}")
     return jsonify({"status": "Directory deleted"})
 
+# Přejmenování souboru nebo adresáře
 @app.route("/rename", methods=["POST"])
 def rename():
     username = request.headers.get("X-Username")
@@ -277,6 +287,7 @@ def rename():
     logger.log("info",f"{username} renamed file {old_name} to {new_name}")
     return jsonify({"status": "Renamed", "from": old_path, "to": new_path})
 
+# Vypsání obsahu adresáře
 @app.route("/list-dir", methods=["GET"])
 def list_dir():
     username = request.headers.get("X-Username")
@@ -303,7 +314,7 @@ def list_dir():
 
     return jsonify({"content": items})
 
-
+# Čtení obsahu souboru
 @app.route("/read-file", methods=["GET"])
 def read_file():
     username = request.headers.get("X-Username")
@@ -324,6 +335,7 @@ def read_file():
 
     return jsonify({"content": content})
 
+# Funkce pro ověřování existence adresářů
 @app.route("/check-directory", methods=["GET"])
 def check_directory():
     username = request.headers.get("X-Username")
@@ -341,4 +353,4 @@ def check_directory():
     return jsonify({"exists": exists})
 
 if __name__ == "__main__":
-    app.run(ssl_context=('server-cert.crt', 'privkey.pem'), host='127.0.0.1', port=8000)
+    app.run(ssl_context=('server-cert.crt', 'privkey.pem'), host='127.0.0.1', port=8000) # Spuštení serveru s platným TLS certifikátem

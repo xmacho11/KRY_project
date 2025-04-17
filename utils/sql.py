@@ -7,6 +7,7 @@ import logging
 
 setup_logging()
 
+# Vytvoření databáze uživatelů
 def create_database():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -21,6 +22,7 @@ def create_database():
     conn.commit()
     conn.close()
 
+# Vložení nového uživatele do tabulky
 def register_user(username, password_hash, totp_secret):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -36,6 +38,7 @@ def register_user(username, password_hash, totp_secret):
     
     conn.close()
 
+# Query pro uživatele, hash hesla a TOTP secret
 def load_user(username):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -49,6 +52,7 @@ def load_user(username):
     else:
         return None, None  
 
+# Query pro ověření existence uživatele
 def check_user_exists(username):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()

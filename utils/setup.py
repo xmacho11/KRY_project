@@ -8,8 +8,10 @@ import os
 
 setup_logging()
 
+# Třída pro inicializaci programu při spuštění
 def setup_client(logs_path="./logs/"):
 
+    # Pokud databáze neexistuje, je vytvořena
     try:    
         if not os.path.exists("users.db"):
             logging.warning("Database not found! Creating new users database.")

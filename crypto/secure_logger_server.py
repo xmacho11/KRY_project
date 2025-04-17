@@ -3,6 +3,7 @@ import hashlib
 import datetime
 import sys
 
+# Třída pro bezpečné logování událostí na straně serveru (používá se hašování a kontrolní výpočty)
 class SecureServerLogger:
     def __init__(self, log_path="./logs/secure_server_log.txt"):
         self.log_path = log_path

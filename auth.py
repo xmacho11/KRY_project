@@ -11,33 +11,38 @@ import subprocess
 setup_logging()
 class Authenticator2FA:
 
-    def __init__(self, session, name, issuer_name = "unknown", ip_addr = "unknown"):
-        self.session = session
+    def __init__(self, name, issuer_name = "unknown", ip_addr = "unknown"):
         self.name = name
         self.issuer_name = issuer_name
         self.ip_addr = ip_addr
-        logging.warning(f"User {name} wish to authenticate in session {session} via device {issuer_name} ({ip_addr}).")
+        logging.warning(f"User {name} wish to authenticate via device {issuer_name} ({ip_addr}).")
 
+    # Getter pro username
     def get_username(self):
         return self.name
     
+    # Getter pro IP klienta
     def get_ip(self):
         return self.ip_addr
     
+    # Hašování
     @staticmethod
     def hash_password(password):
         salt = bcrypt.gensalt()
         return bcrypt.hashpw(password.encode(), salt).decode("utf-8")
 
+    # Porovnání hašů
     @staticmethod
     def verify_password(stored_hash, password):
         return bcrypt.checkpw(password.encode(), stored_hash.encode("utf-8"))
 
+    # Generování TOTP klíče formou QR kódu
     def keygen(self):
         secret = pyotp.random_base32()
         self.qrgen(secret)
         return secret  
 
+    # Vytvoření QR kódu
     def qrgen(self, secret):
         uri = pyotp.totp.TOTP(secret).provisioning_uri(self.name, self.issuer_name)
         
@@ -50,11 +55,13 @@ class Authenticator2FA:
 
         logging.warning("Please scan opened QR code in your Google Authenticator app.")
 
+    # Výpočet TOTP kódu
     @staticmethod
     def verify_otp(secret, user_code):
         totp = pyotp.TOTP(secret)
         return totp.verify(user_code)
 
+    # Dvoufázová autentizace
     def authenticate(self, username, password, otp_code):
         stored_hash, secret = sql.load_user(username)
 
@@ -68,6 +75,7 @@ class Authenticator2FA:
             logging.info(f"User {username} logged in.")
             return True
     
+    # Zaslání veřejného klíče klienta serveru (pro dohodnutí AES klíče a šifrování souborů)
     @staticmethod
     def send_public_key(server_url):
         """ Pošle veřejný klíč serveru, aby ho mohl použít k šifrování zpráv pro klienta """
@@ -78,9 +86,9 @@ class Authenticator2FA:
             response = requests.post(
                 f"{server_url}/register-public-key",
                 json={"public_key": public_key.decode()},
-                verify="server-cert.crt"  # ověř serverový certifikát
+                verify="server-cert.crt"  # Ověř serverový certifikát
             )
-            response.raise_for_status()  # vyhodí výjimku pokud nenastane 2xx odpověď
+            response.raise_for_status()  # Vyhodí výjimku pokud nenastane 2xx odpověď
             logging.info(response.json())
         except requests.exceptions.SSLError as ssl_error:
             logging.error(f"SSL verification failed: {ssl_error}")

@@ -6,6 +6,7 @@ import json
 
 setup_logging()
 
+# Třída pro manipulaci se soubory
 class ClientFileManager:
     def __init__(self, server_url, username, cert_path="server-cert.crt"):
         self.server_url = server_url.rstrip('/')
@@ -17,12 +18,16 @@ class ClientFileManager:
     def change_directory(self, new_dir):
         """ Změní aktuální pracovní adresář pokud existuje """
         path = os.path.normpath(os.path.join(self.cwd, new_dir))
-        if self.check_directory(path):
-            self.cwd = path
-            return f"Changed directory to: /{self.cwd}" if self.cwd else "Changed to root directory"
-        else:
-            return f"Error: directory '{path}' doesn't exist"
-
+        try:
+            if self.check_directory(path):
+                self.cwd = path
+                return f"Changed directory to: /{self.cwd}" if self.cwd else "Changed to root directory"
+            else:
+                return f"Error: directory '{path}' doesn't exist"
+        except:
+            return f"Invalid change directory"
+    
+    # API funkce (viz server.py)
     def check_directory(self, path):
         """ Ověří zda daný adresář existuje na serveru """
         params = {"path": path}

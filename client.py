@@ -10,111 +10,123 @@ from file_manager import ClientFileManager
 from utils.ui import show_menu
 import crypto.download as down
 import crypto.upload as up
+import os
 
 server = "https://127.0.0.1:8000"
 certificate = "server-cert.crt"
 setup_logging()
 
-def input_list(input):
-    commands = {
-        "q": "exit",
-        "y": "yes",
-        "n": "no",
-        "cf": "create_file",
-        "e": "edit_file",
-        "df": "delete_file",
-        "cd": "create_dir",
-        "dd": "delete_dir",
-        "r": "rename",
-        "up": "upload",
-        "dw": "download",
-        "ls": "list_dir",
-        "show": "read_file",
-        "md": "change_dir",
-        "help": "help"
-    }
-    return commands.get(input, "none")
+def parse_input(input_str):
+    parts = input_str.strip().split()
+    if not parts:
+        return None, []
+    return parts[0], parts[1:]
 
 
+# Hlavní metoda
 def main():
     var = ""
     registered = False
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
 
-    while input_list(var) != "exit":
+    while True:
+        user_input = input()
+        command, args = parse_input(user_input)
+
+        if command == "exit" or command == "q":
+            break
+
         var = input("Enter your username: ")
         username = var
-        if sql.check_user_exists(username):
-            auth = Authenticator2FA(0,username,hostname,ip_address)
+        if sql.check_user_exists(username): # Volání Query pro ověření existence uživatelského jména v databázi
+            auth = Authenticator2FA(username,hostname,ip_address) # Vytvoření objektu autentizátoru
             registered = True
             break
 
         else:
-            var = input("Username doesn't exist! Wish to register? [y] yes [any] cancel [q] quit : ")
-            if input_list(var) == "yes":
-                auth = Authenticator2FA(0,username,hostname,ip_address)
+            var = input("Username doesn't exist! Wish to register? [y] yes [any] quit : ")
+            if var == "y":
+                auth = Authenticator2FA(username,hostname,ip_address)  # Vytvoření objektu autentizátoru
                 var = pw.pwinput("Enter your password: ")
-                sql.register_user(username, auth.hash_password(var), auth.keygen())
+                sql.register_user(username, auth.hash_password(var), auth.keygen()) # Registrace nového uživatele
                 registered = True
                 break
+            else: break
             
-    if registered:
+            
+    if registered: # Přihlašování
         while True:
             pswd = pw.pwinput("Enter your password: ")
             otp = input("Enter your TOTP code: ")
-            if not auth.authenticate(username,pswd,otp):
+            if not auth.authenticate(username,pswd,otp): # Dvoufázová autentizace
+                print("Error : Invalid password or TOTP code.")
                 break
             else:
-                auth.send_public_key(server)
+                auth.send_public_key(server) # Zaslání veřejného klíče klienta serveru
                 print("Authenticated!")
 
-                # Inicializace klienta s předáním username
-                client = ClientFileManager(server, auth.get_username(), certificate)
+                
+                client = ClientFileManager(server, auth.get_username(), certificate) # Inicializace klienta s předáním username serveru
                 show_menu()
-                while True:
-                    var = input(f"\n./{client.cwd} > ")
-                    command = input_list(var)
+                while True: # Loop pro zadávání příkazů
+                    user_input = input(f"\n{auth.get_username()}/.{client.cwd} > ")
+                    command, args = parse_input(user_input)
 
-                    match command:
-                        case "create_file":
-                            filename = input("Filename: ")
-                            content = input("Content: ")
+                    match command: # Switch příkazů
+                        case "touch": # Vytvoření souboru a vložení obsahu
+                            if len(args) < 2:
+                                print("Usage: create_file <filename> <content>")
+                                continue
+                            filename, content = args[0], " ".join(args[1:])
                             print(client.create_file(filename, content))
 
-                        case "edit_file":
-                            filename = input("Filename: ")
-                            content = input("Nový obsah: ")
+                        case "edit": # Editování souboru
+                            if len(args) < 2:
+                                print("Usage: edit_file <filename> <new content>")
+                                continue
+                            filename, content = args[0], " ".join(args[1:])
                             print(client.edit_file(filename, content))
 
-                        case "delete_file":
-                            filename = input("Filename: ")
-                            print(client.delete_file(filename))
+                        case "rmf": # Smazání souboru
+                            if len(args) != 1:
+                                print("Usage: delete_file <filename>")
+                                continue
+                            print(client.delete_file(args[0]))
 
-                        case "create_dir":
-                            dirname = input("Directory: ")
-                            print(client.create_directory(dirname))
+                        case "mkdir": # Vytvoření adresáře
+                            if len(args) != 1:
+                                print("Usage: create_dir <dirname>")
+                                continue
+                            print(client.create_directory(args[0]))
 
-                        case "delete_dir":
-                            dirname = input("Directory: ")
-                            print(client.delete_directory(dirname))
+                        case "rmd": # Smazání adresáře
+                            if len(args) != 1:
+                                print("Usage: delete_dir <dirname>")
+                                continue
+                            print(client.delete_directory(args[0]))
 
-                        case "rename":
-                            old_name = input("Filename: ")
-                            new_name = input("New Filename: ")
-                            print(client.rename(old_name, new_name))
-                        
-                        case "download":
-                            filename = input("File name: ")
+                        case "rename": # Přejmenování souboru nebo adresáře
+                            if len(args) != 2:
+                                print("Usage: rename <oldname> <newname>")
+                                continue
+                            print(client.rename(args[0], args[1]))
+
+                        case "down": # Stažení souboru
+                            if len(args) != 1:
+                                print("Usage: download <filename>")
+                                continue
                             downloader = down.Download(server, username, certificate)
-                            downloader.request_file(filename)
+                            downloader.request_file(os.path.join(client.cwd, args[0]))
 
-                        case "upload":
-                            filepath = input("Filepath: ")  # interaktivní nebo předej z autentizace
+                        case "up": # Nahrání souboru
+                            if len(args) != 1:
+                                print("Usage: upload <filepath>")
+                                continue
                             uploader = up.Upload(server, username, certificate)
-                            uploader.send_file(filepath)
+                            uploader.send_file(args[0],client.cwd)
 
-                        case "list_dir":
+                        case "ls": # Zobrazení obsahu adresáře
                             try:
                                 content = client.list_directory()
                                 print(f"\nContents> {client.cwd or '.'}:")
@@ -124,30 +136,34 @@ def main():
                             except Exception as e:
                                 print(f"Error: {e}")
 
-                        case "read_file":
-                            file_path = input("Path (relative): ")
+                        case "read": # Čtení obsahu souboru
+                            if len(args) != 1:
+                                print("Usage: read_file <path>")
+                                continue
                             try:
-                                content = client.read_file(file_path)
+                                content = client.read_file(args[0])
                                 print("\nContent:")
                                 print(content)
                             except Exception as e:
-                                print(f"Error:: {e}")
+                                print(f"Error: {e}")
 
-                        case "change_dir":
-                            new_dir = input("Path (relative): ")
-                            result = client.change_directory(new_dir)
+                        case "cd": # Pohyb mezi adresáři
+                            if len(args) != 1:
+                                print("Usage: change_dir <path>")
+                                continue
+                            result = client.change_directory(args[0])
                             print(result)
-                        
-                        case "help":
+
+                        case "help": # Vypsání nápovědy
                             show_menu()
 
-                        case "exit":
+                        case "exit": # Ukončení klienta
                             break
 
                         case _:
-                            print("Invalid Command")
+                            print("Invalid command. Type 'help' for command list.")
+
                 break              
-    sys.exit(logging.info("Exitting client"))
 
 if __name__=="__main__":
     setup_client()
