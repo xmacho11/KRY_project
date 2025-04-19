@@ -7,8 +7,8 @@ Autoři: Vilém Pecháček, Radim Macho
 - [Úvod](#úvod)
 - [Instalace](#instalace)
 - [Problematika](#problematika)
-- [Autentizace uživatele](#autentizace-uživatele)
 - [Vývojový diagram autentizátoru](#vývojový-diagram-autentizátoru)
+- [Vývojový diagram serveru](#vývojový-diagram-serveru)
 - [Kryptografická ochrana](#kryptografická-ochrana)
 - [Funkce serveru](#funkce-serveru)
 - [Funkce klienta](#funkce-klienta)
@@ -75,16 +75,21 @@ Zabezpečení přenosu dat v síti je stěžejním úkolem ochrany citlivých in
  Mezi bezpečné protokoly pro přenos dat patří např. Secure File Transfer Protocol (SFTP). Tento protokol využívá kryptografii Secure Shell (SSH) k šifrování dat. SFTP podporuje autentizaci na základě hostitele a využívá párové klíče. Další variantou je File Transfer Protocol Over SSL (FTPS), který je rozšířením FTP o podporu Tansport Layer Security (TLS). FTPS však vyžaduje použití dvou portů na klientském serveru, což může komplikovat přenosy dat přes firewally [8].
 Dalším široce používaným protokolem je Hypertext Transfer Protocol Secure (HTTPS). Jedná se o rozšíření protokolu HTTP, které využívá šifrování pomocí protokolu TLS k zabezpečení komunikace mezi webovým prohlížečem a webovou stránkou. HTTPS je standardem a každá bezpečná webová stránka by jej měla implementovat, zejména pokud požaduje zadávání citlivých údajů uživatelů [8].
 
-## Autentizace uživatele
-Architektura aplikace je postavena na principu klient-server, kdy klient je autentizátor a server pak samotné úložiště dat. Úkolem autentizátoru je ověřit identitu uživatele, a následně vybudovat zabezpečené spojení pro přenos souborů mezi serverem a uživatelem. Autentizace uživatele probíhá pomocí dvoufázového ověření, kdy je uživatel vyzván k zadání hesla a TOTP kódu. Přihlašovací údaje uživatelů jsou uloženy v SQL databázi, heslo je před vložením do databáze zahešováno. Blokové schéma aplikace je zobrazeno na obr.
-
 ![blokové schéma aplikace](images/schema.png)
-
-Po úspěšné autentizaci uživatele naváže klient spojení se serverem, kdy nejprve klient předá uživatelovo jméno a svůj veřejný klíč. Server použije jméno uživatele pro otevření správného adresáře a uloží si veřejný klíč klienta. V případě nahrávání či stahování souborů ze serveru je použito symetrického šifrování AES s ohlašováním klíčů pomocí RSA. Způsob zajištění důvěrnosti souborů pro oba směry je popsán níže. Server běží na frameworku Flask.
 
 ## Vývojový diagram autentizátoru
 
-![vývojový diagram autentizátoru](images/diagram.png)
+Architektura aplikace je postavena na principu klient-server, kdy klient je autentizátor a server pak samotné úložiště dat. Úkolem autentizátoru je ověřit identitu uživatele, a následně vybudovat zabezpečené spojení pro přenos souborů mezi serverem a uživatelem. Autentizace uživatele probíhá pomocí dvoufázového ověření, kdy je uživatel vyzván k zadání hesla a TOTP kódu. Přihlašovací údaje uživatelů jsou uloženy v SQL databázi, heslo je před vložením do databáze zahešováno. Blokové schéma aplikace je zobrazeno na obr.
+
+Po úspěšné autentizaci uživatele naváže klient spojení se serverem, kdy nejprve klient předá uživatelovo jméno a svůj veřejný klíč. Server použije jméno uživatele pro otevření správného adresáře a uloží si veřejný klíč klienta. V případě nahrávání či stahování souborů ze serveru je použito symetrického šifrování AES s ohlašováním klíčů pomocí RSA. Způsob zajištění důvěrnosti souborů pro oba směry je popsán níže. Server běží na frameworku Flask.
+
+![vývojový diagram autentizátoru](images/klient.png)
+
+## Vývojový diagram serveru
+
+Při prvotním spuštění serveru si server vygeneruje své RSA klíče, kdy veřejný klíč bude zveřejněn na daném endpointu. Server si také načte svůj certifikát, který si bude při každém požadavku klient ověřovat. Po úšpěšném přihlášení uživatele na straně autentizátoru se klient serveru ohlásí předáním svého veřejného klíče pro přípádný budoucí přenos souborů. Každá další žádost musí ve své hlavičce obsahovat uživatelské jméno klienta, který přes autentizátor vystupuje. Podle tohoto jména bude server provádět požadavky nad správným adresářem. Server následně funguje klasickým způsobem, kdy API naslouchá na daných endpointech. V případě požadavku pak z žádosti extrahuje hlavičku s uživatelským jménem, a v případě, že uživatel nepřekročil daný počet požadavků za minutu (viz kapitola [níže](#dos-ochrana)) provede daný požadavek (které jsou podrobně popsány [níže](#funkce-serveru)). Server v rámci požadavku také ověřuje, jestli adresář uživatele existuje. Pokud ne, tak ho vytvoří. V případě úspěch pak JSON odpověď obsahuje OK kód typu 2xx, v opačném případě pak server ohlásí chybu kódem 4xx. Veškeré žádosti, které nějakým způsobem manipulují se soubory jsou pak logovány do chráněného logu serveru.
+
+![vývojový diagram serveru](images/server.png)
 
 ## Kryptografická ochrana
 
@@ -307,7 +312,7 @@ Klientská část systému poskytuje sadu příkazů pro práci se vzdáleným s
 
 ### Shrnutí
 
-| Příkaz  | Funkce klienta       | API serveru / lokální |
+| Příkaz  | Funkce klienta       | API serveru / klient |
 |:---------|:-----------------------|:-----------------------|
 | `touch`   | `create_file`            | `POST /create-file`      |
 | `edit`    | `edit_file`              | `POST /edit-file`        |
@@ -319,19 +324,21 @@ Klientská část systému poskytuje sadu příkazů pro práci se vzdáleným s
 | `up`      | `upload_file`            | `POST /upload`           |
 | `ls`      | `list_directory`         | `GET /list-dir`          |
 | `read`    | `read_file`              | `GET /read-file`         |
-| `cd`      | `change_directory`       | `GET /check-directory`   |
-| `exit`    | `exit`                   | Lokální                  |
-| `help`    | `help`                   | Lokální                  |
-| `show_menu` | `show_menu`            | Lokální                  |
-| `input_list`| `input_list`           | Lokální                  |
+| `cd`      | `change_directory`       | `GET /check-directory` + klient změna cwd |
+| `exit`    | `exit`                   | klient                  |
+| `help`    | `help`                   | klient                  |
+| `show_menu` | `show_menu`            | klient                  |
+| `input_list`| `input_list`           | klient                  |
 
 ---
 
 ## DoS ochrana
 
-Cílem DoS ochrany je chránit server proti zneužití nadměrným počtem operací (upload/download, file operace, atd.). K tomuto účelu jsme použili knihovnu Flask-Limiter, což je rozšíření Flasku pro rate limiting. Každý příchozí request na omezený endpoint je kontrolován. Pokud klient překročí limit, server automaticky vrátí HTTP odpověď: 429 Too Many Requests. Momentální omezení pro /upload je 5 požadavků za minutu a pro /get-file (stažení souboru) pak 10 požadavků za minutu. Výhoda tohoto řešení je jeho jednoduchost a rychlá ochrana proti DoS útokům, není potřeba žádné externí proxy nebo WAF a je tu možnost detailně nastavit limity pro různé operace.
+Cílem DoS ochrany je chránit server proti zneužití nadměrným počtem operací (upload/download, file operace, atd.). K tomuto účelu jsme použili knihovnu Flask-Limiter, což je rozšíření Flasku pro rate limiting. Každý příchozí request na omezený endpoint je kontrolován. Pokud klient překročí limit, server automaticky vrátí HTTP odpověď: 429 Too Many Requests. Momentální omezení pro jakýkoliv požadavek je 5 výskytů za minutu. Výhoda tohoto řešení je jeho jednoduchost a rychlá ochrana proti DoS útokům, není potřeba žádné externí proxy nebo WAF a je tu možnost detailně nastavit limity pro různé operace.
 
 ## Závěr
+
+V rámci projektu byly splněny všechny cíle zadání. Byla implementována kompletní dvoufázová autentizace uživatele, kdy se uživatel musí nejprve zaregistrovat, uložit své heslo a pomocí aplikace Google Authenticator nasnímat QR kód generovaný autentizátorem pro uložení TOTP klíče. Uživatel je po úspěšné registraci uložen v databázi klienta, která obsahuje jeho uživatelské jméno, zahešované heslo a TOTP secret. Při každém přihlašování je následně po uživateli vyžadováno heslo a TOTP kód, který je časově generován ve zmíněné aplikaci Google Authenticator. Dále byl implementován server, který vlastní certifikát a veškerý přenos mezi klientem a serverem je pomocí něj šifrován TLS. Přenos souborů je navíc šifrován pomocí AES, kdy potřebné klíče si protistrany ohlásí pomocí RSA. Své klíče si každá strana generuje sama. Tímto způsobem je zabezpečena důvěrnost přenášených souborů, a díky TLS je zajištěno bezpečné předání klíčů. Logování záznamů si klient i server řeší samostatně. Na straně klienta jsou logovány veškeré akce, jako pokusy o přihlášení, požadavky nebo přenosy souborů. Na straně serveru jsou logovány pouze požadavky, které manipulují se soubory v adresáři uživatele. Záznamy jsou navíc zabezpečeny proti přepisování pomocí výpočtu hashů jednotlivých záznamů. Tímto způsobem je zajištěna integrita logu. Server také obsahuje ochranu proti DoS útokům, a to pomocí omezeného počtu obsloužených požadavků za minutu. V případě překročení server další požadavek odmítne.
 
 ## Literatura
 

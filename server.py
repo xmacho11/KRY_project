@@ -65,7 +65,7 @@ def get_public_key():
 
 # Obdržení, dešifrování a uložení nahrávaného souboru
 @app.route("/upload", methods=["POST"])
-@limiter.limit("5 per minute")
+@limiter.limit("5 per minute") #DoS
 def receive_encrypted_file():
     username = request.headers.get("X-Username")
     if not username:
@@ -104,7 +104,7 @@ def receive_encrypted_file():
 
 # Funkce pro zašifrování a stažení vyžádaného souboru
 @app.route("/get-file", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("5 per minute") #DoS
 def get_file():
     username = request.headers.get("X-Username")
     if not username:
@@ -160,6 +160,7 @@ def is_safe_path(base_path, path):
 
 # Vytvoření souboru
 @app.route("/create-file", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def create_file():
     username = request.headers.get("X-Username")
     if not username:
@@ -183,6 +184,7 @@ def create_file():
 
 # Smazání souboru
 @app.route("/delete-file", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def delete_file():
     username = request.headers.get("X-Username")
     if not username:
@@ -203,6 +205,7 @@ def delete_file():
 
 # Editace existujícího souboru
 @app.route("/edit-file", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def edit_file():
     username = request.headers.get("X-Username")
     if not username:
@@ -226,6 +229,7 @@ def edit_file():
 
 # Vytvoření adresáře
 @app.route("/create-directory", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def create_directory():
     username = request.headers.get("X-Username")
     if not username:
@@ -247,6 +251,7 @@ def create_directory():
 
 # Smazání adresáře
 @app.route("/delete-directory", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def delete_directory():
     username = request.headers.get("X-Username")
     if not username:
@@ -267,6 +272,7 @@ def delete_directory():
 
 # Přejmenování souboru nebo adresáře
 @app.route("/rename", methods=["POST"])
+@limiter.limit("5 per minute") #DoS
 def rename():
     username = request.headers.get("X-Username")
     if not username:
@@ -289,6 +295,7 @@ def rename():
 
 # Vypsání obsahu adresáře
 @app.route("/list-dir", methods=["GET"])
+@limiter.limit("5 per minute") #DoS
 def list_dir():
     username = request.headers.get("X-Username")
     if not username:
@@ -316,6 +323,7 @@ def list_dir():
 
 # Čtení obsahu souboru
 @app.route("/read-file", methods=["GET"])
+@limiter.limit("5 per minute") #DoS
 def read_file():
     username = request.headers.get("X-Username")
     if not username:
