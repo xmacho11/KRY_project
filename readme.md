@@ -79,7 +79,7 @@ Dalším široce používaným protokolem je Hypertext Transfer Protocol Secure 
 
 ## Vývojový diagram autentizátoru
 
-Architektura aplikace je postavena na principu klient-server, kdy klient je autentizátor a server pak samotné úložiště dat. Úkolem autentizátoru je ověřit identitu uživatele, a následně vybudovat zabezpečené spojení pro přenos souborů mezi serverem a uživatelem. Autentizace uživatele probíhá pomocí dvoufázového ověření, kdy je uživatel vyzván k zadání hesla a TOTP kódu. Přihlašovací údaje uživatelů jsou uloženy v SQL databázi, heslo je před vložením do databáze zahešováno. Blokové schéma aplikace je zobrazeno na obr.
+Architektura aplikace je postavena na principu klient-server, kdy klient je autentizátor a server pak samotné úložiště dat. Úkolem autentizátoru je ověřit identitu uživatele, a následně vybudovat zabezpečené spojení pro přenos souborů mezi serverem a uživatelem. Autentizace uživatele probíhá pomocí dvoufázového ověření, kdy je uživatel vyzván k zadání hesla a TOTP kódu. Přihlašovací údaje uživatelů jsou uloženy v SQL databázi, heslo je před vložením do databáze zahešováno. Blokové schéma aplikace je zobrazeno na obrázku výše.
 
 Po úspěšné autentizaci uživatele naváže klient spojení se serverem, kdy nejprve klient předá uživatelovo jméno a svůj veřejný klíč. Server použije jméno uživatele pro otevření správného adresáře a uloží si veřejný klíč klienta. V případě nahrávání či stahování souborů ze serveru je použito symetrického šifrování AES s ohlašováním klíčů pomocí RSA. Způsob zajištění důvěrnosti souborů pro oba směry je popsán níže. Server běží na frameworku Flask.
 
