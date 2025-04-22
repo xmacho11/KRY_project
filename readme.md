@@ -278,15 +278,15 @@ Klientská část systému poskytuje sadu příkazů pro práci se vzdáleným s
 
 #### `down` — Stažení souboru
 - Volá: `GET /get-file`
-- Stáhne zašifrovaný soubor ze serveru a dešifruje ho na klientovi.
+- Stáhne zašifrovaný soubor ze serveru, dešifruje ho na klientovi a uloží do složky downloads.
 
 #### `up` — Nahrání souboru
 - Volá: `POST /upload`
-- Zašifruje a odešle soubor na server.
+- Zašifruje a odešle soubor na server, kde ho uloží do aktuálního adresáře.
 
 #### `ls` — Výpis obsahu adresáře
 - Volá: `GET /list-dir`
-- Vrátí seznam souborů a složek v aktuálním adresáři na serveru.
+- Vrátí seznam souborů a složek v aktuálním adresáři na serveru, složky jsou označeny jako [DIR].
 
 #### `read` — Čtení obsahu souboru
 - Volá: `GET /read-file`
@@ -304,9 +304,6 @@ Klientská část systému poskytuje sadu příkazů pro práci se vzdáleným s
 
 #### `show_menu` — Vykreslení menu příkazů
 - Interní funkce klienta pro vypsání všech dostupných příkazů na terminál.
-
-#### `input_list` — Zpracování vstupu uživatele
-- Pomocná funkce pro mapování zkrácených a alternativních vstupů na odpovídající příkazy.
 
 ---
 
