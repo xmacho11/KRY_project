@@ -13,6 +13,7 @@ Autoři: Vilém Pecháček, Radim Macho
 - [Funkce serveru](#funkce-serveru)
 - [Funkce klienta](#funkce-klienta)
 - [DoS ochrana](#dos-ochrana)
+- [Použité knihovny](#použité-knihovny)
 - [Závěr](#závěr)
 - [Literatura](#literatura)
 
@@ -53,6 +54,7 @@ python3 server.py
 ```bash
 python3 client.py
 ```
+3. Zadání uživatelského jména, následné potvrzení, že si přejeme toto jméno registrovat, zadání hesla a naskenování QR kódu. Po registraci je nutné znovu zadat heslo a TOTP kód pro přihlášení. Po přihlášení je možné používat funkce pro manipulaci se soubory, veškeré příkazy si lze zobrazit zadáním 'help' do příkazové řádky.
 
 ## Problematika
 
@@ -332,6 +334,56 @@ Klientská část systému poskytuje sadu příkazů pro práci se vzdáleným s
 ## DoS ochrana
 
 Cílem DoS ochrany je chránit server proti zneužití nadměrným počtem operací (upload/download, file operace, atd.). K tomuto účelu jsme použili knihovnu Flask-Limiter, což je rozšíření Flasku pro rate limiting. Každý příchozí request na omezený endpoint je kontrolován. Pokud klient překročí limit, server automaticky vrátí HTTP odpověď: 429 Too Many Requests. Momentální omezení pro jakýkoliv požadavek je 5 výskytů za minutu. Výhoda tohoto řešení je jeho jednoduchost a rychlá ochrana proti DoS útokům, není potřeba žádné externí proxy nebo WAF a je tu možnost detailně nastavit limity pro různé operace.
+
+## Použité knihovny
+
+Použité knihovny si lze pohodlně nainstalovat viz [Instalace](#instalace). Názvy a verze knihoven jsou uvedeny v souboru requirements.txt:
+
+| Knihovna            | Verze     |
+|---------------------|-----------|
+| annotated-types     | 0.7.0     |
+| anyio               | 4.8.0     |
+| bcrypt              | 4.3.0     |
+| blinker             | 1.9.0     |
+| certifi             | 2025.1.31 |
+| charset-normalizer  | 3.4.1     |
+| click               | 8.1.8     |
+| colorama            | 0.4.6     |
+| Deprecated          | 1.2.18    |
+| exceptiongroup      | 1.2.2     |
+| fastapi             | 0.115.11  |
+| Flask               | 3.1.0     |
+| Flask-Limiter       | 3.12      |
+| h11                 | 0.14.0    |
+| idna                | 3.10      |
+| itsdangerous        | 2.2.0     |
+| Jinja2              | 3.1.6     |
+| limits              | 4.6       |
+| markdown-it-py      | 3.0.0     |
+| MarkupSafe          | 3.0.2     |
+| mdurl               | 0.1.2     |
+| Naked               | 0.1.32    |
+| ordered-set         | 4.1.0     |
+| packaging           | 24.2      |
+| pillow              | 11.1.0    |
+| pwinput             | 1.0.3     |
+| pycryptodome        | 3.21.0    |
+| pydantic            | 2.10.6    |
+| pydantic_core       | 2.27.2    |
+| Pygments            | 2.19.1    |
+| pyotp               | 2.9.0     |
+| PyYAML              | 6.0.2     |
+| qrcode              | 8.0       |
+| requests            | 2.32.3    |
+| rich                | 13.9.4    |
+| shellescape         | 3.8.1     |
+| sniffio             | 1.3.1     |
+| starlette           | 0.46.1    |
+| typing_extensions   | 4.12.2    |
+| urllib3             | 2.3.0     |
+| uvicorn             | 0.34.0    |
+| Werkzeug            | 3.1.3     |
+| wrapt               | 1.17.2    |
 
 ## Závěr
 
