@@ -10,6 +10,7 @@ Autoři: Vilém Pecháček, Radim Macho
 - [Vývojový diagram autentizátoru](#vývojový-diagram-autentizátoru)
 - [Vývojový diagram serveru](#vývojový-diagram-serveru)
 - [Kryptografická ochrana](#kryptografická-ochrana)
+- [Logování](#logování)
 - [Funkce serveru](#funkce-serveru)
 - [Funkce klienta](#funkce-klienta)
 - [DoS ochrana](#dos-ochrana)
