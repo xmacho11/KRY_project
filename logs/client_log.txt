@@ -1,0 +1,3 @@
+05/15/2025 13:27:02 - WARNING - Database not found! Creating new users database.
+05/15/2025 13:27:02 - INFO - RSA keys generated.
+05/15/2025 13:27:02 - INFO - Client setup succesfull!
